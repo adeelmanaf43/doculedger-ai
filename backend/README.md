@@ -38,10 +38,29 @@ Expected response:
 }
 ```
 
+## Upload a Document
+
+The local MVP accepts PDF, PNG, JPG, and JPEG uploads at:
+
+```text
+POST http://localhost:8000/documents/upload
+```
+
+The form field name is `file`. Uploaded source files are stored under `DOCULEDGER_LOCAL_STORAGE_DIR`, which defaults to `./storage`. The API response returns a relative `storage_key` instead of an absolute internal path.
+
+PowerShell example:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://localhost:8000/documents/upload" `
+  -Method Post `
+  -Form @{ file = Get-Item ".\sample-invoice.pdf" }
+```
+
 ## Run Tests
 
 ```powershell
 pytest
 ```
 
-Current scope includes only the app entrypoint, safe config defaults, and the health endpoint. Upload, OCR, extraction, storage, database models, and frontend work are intentionally not implemented yet.
+Current scope includes the app entrypoint, safe config defaults, health endpoint, and local document upload storage. OCR, extraction, database models, paid APIs, and frontend work are intentionally not implemented yet.
