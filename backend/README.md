@@ -15,6 +15,16 @@ pip install -r requirements.txt
 
 The backend reads configuration from environment variables and uses safe local defaults when variables are not set. The root `.env.example` is the source of truth for current placeholders. Do not commit a real `.env` file or secrets.
 
+## Tesseract OCR on Windows
+
+Image OCR uses local Tesseract through `pytesseract`. Install Tesseract separately before running OCR on real files. On Windows, install Tesseract and either add it to `PATH` or set:
+
+```powershell
+$env:DOCULEDGER_TESSERACT_CMD="C:\Program Files\Tesseract-OCR\tesseract.exe"
+```
+
+OCR remains local/free. No Google Vision, OpenAI, Claude, or paid OCR provider is used.
+
 ## Run the API
 
 ```powershell
@@ -65,7 +75,17 @@ Text-based PDFs can be extracted after upload:
 POST http://localhost:8000/documents/{document_id}/extract-text
 ```
 
-The response includes page count, combined text, per-page text, extraction method, and warnings. This step does not run OCR yet; scanned PDFs and images will need a later OCR service.
+The response includes page count, combined text, per-page text, extraction method, and warnings.
+
+## OCR an Image
+
+PNG, JPG, and JPEG uploads can be OCR processed locally after upload:
+
+```text
+POST http://localhost:8000/documents/{document_id}/ocr
+```
+
+The response includes combined OCR text, per-page text, extraction method, optional confidence, and warnings. Scanned/image-based PDFs return a limitation warning for now because PDF-to-image page conversion has not been added yet.
 
 ## Run Tests
 
@@ -73,4 +93,4 @@ The response includes page count, combined text, per-page text, extraction metho
 pytest
 ```
 
-Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, and text extraction for text-based PDFs. OCR, invoice field extraction, database models, paid APIs, and frontend work are intentionally not implemented yet.
+Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, and local Tesseract OCR for images. PDF page conversion, invoice field extraction, database models, paid APIs, and frontend work are intentionally not implemented yet.

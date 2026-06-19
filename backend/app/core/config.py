@@ -19,6 +19,14 @@ def _get_int(name: str, default: int) -> int:
         return default
 
 
+def _get_optional_str(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "DocuLedger"
@@ -44,6 +52,9 @@ class Settings:
     )
     ocr_provider: str = field(
         default_factory=lambda: os.getenv("DOCULEDGER_OCR_PROVIDER", "tesseract")
+    )
+    tesseract_cmd: str | None = field(
+        default_factory=lambda: _get_optional_str("DOCULEDGER_TESSERACT_CMD")
     )
     extractor_provider: str = field(
         default_factory=lambda: os.getenv("DOCULEDGER_EXTRACTOR_PROVIDER", "rule_based")

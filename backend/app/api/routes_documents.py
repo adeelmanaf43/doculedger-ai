@@ -1,8 +1,13 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.core.config import Settings, get_settings
-from app.schemas.document import TextExtractionResult, UploadedDocumentMetadata
+from app.schemas.document import (
+    OcrExtractionResult,
+    TextExtractionResult,
+    UploadedDocumentMetadata,
+)
 from app.services.extraction.pdf_text import PdfTextExtractor, TextExtractionError
+from app.services.ocr.tesseract_ocr import OcrError, TesseractOcrProvider
 from app.services.storage.local_storage import (
     DocumentStorageError,
     DocumentUploadError,
@@ -43,4 +48,21 @@ def extract_document_text(
         document = storage.get_stored_document(document_id)
         return extractor.extract(document)
     except (DocumentStorageError, TextExtractionError) as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+@router.post(
+    "/{document_id}/ocr",
+    response_model=OcrExtractionResult,
+)
+def ocr_document(
+    document_id: str,
+    app_settings: Settings = Depends(get_settings),
+) -> OcrExtractionResult:
+    storage = LocalDocumentStorage(app_settings)
+    ocr_provider = TesseractOcrProvider(app_settings)
+    try:
+        document = storage.get_stored_document(document_id)
+        return ocr_provider.extract(document)
+    except (DocumentStorageError, OcrError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
