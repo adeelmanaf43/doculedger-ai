@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.core.config import Settings, get_settings
-from app.schemas.document import UploadedDocumentMetadata
+from app.schemas.document import TextExtractionResult, UploadedDocumentMetadata
+from app.services.extraction.pdf_text import PdfTextExtractor, TextExtractionError
 from app.services.storage.local_storage import (
+    DocumentStorageError,
     DocumentUploadError,
     LocalDocumentStorage,
 )
@@ -24,4 +26,21 @@ async def upload_document(
     try:
         return await storage.save_upload(file)
     except DocumentUploadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+@router.post(
+    "/{document_id}/extract-text",
+    response_model=TextExtractionResult,
+)
+def extract_document_text(
+    document_id: str,
+    app_settings: Settings = Depends(get_settings),
+) -> TextExtractionResult:
+    storage = LocalDocumentStorage(app_settings)
+    extractor = PdfTextExtractor()
+    try:
+        document = storage.get_stored_document(document_id)
+        return extractor.extract(document)
+    except (DocumentStorageError, TextExtractionError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc

@@ -1,5 +1,7 @@
+from dataclasses import dataclass
 from pathlib import Path
 import re
+from uuid import UUID
 from uuid import uuid4
 
 from fastapi import UploadFile, status
@@ -17,7 +19,23 @@ ALLOWED_CONTENT_TYPES = {
 CHUNK_SIZE_BYTES = 1024 * 1024
 
 
+@dataclass(frozen=True)
+class StoredDocumentRef:
+    document_id: str
+    storage_key: str
+    path: Path
+    safe_filename: str
+    content_type: str
+
+
 class DocumentUploadError(Exception):
+    def __init__(self, status_code: int, detail: str) -> None:
+        self.status_code = status_code
+        self.detail = detail
+        super().__init__(detail)
+
+
+class DocumentStorageError(Exception):
     def __init__(self, status_code: int, detail: str) -> None:
         self.status_code = status_code
         self.detail = detail
@@ -82,6 +100,46 @@ class LocalDocumentStorage:
             status="uploaded",
         )
 
+    def get_stored_document(self, document_id: str) -> StoredDocumentRef:
+        if not _is_valid_document_id(document_id):
+            raise DocumentStorageError(
+                status.HTTP_404_NOT_FOUND,
+                "Document not found.",
+            )
+
+        document_dir = self.storage_root / document_id
+        self._ensure_safe_destination(document_dir)
+        if not document_dir.is_dir():
+            raise DocumentStorageError(
+                status.HTTP_404_NOT_FOUND,
+                "Document not found.",
+            )
+
+        files = [path for path in document_dir.iterdir() if path.is_file()]
+        if not files:
+            raise DocumentStorageError(
+                status.HTTP_404_NOT_FOUND,
+                "Document not found.",
+            )
+        if len(files) > 1:
+            raise DocumentStorageError(
+                status.HTTP_409_CONFLICT,
+                "Document storage contains more than one source file.",
+            )
+
+        document_path = files[0]
+        self._ensure_safe_destination(document_path)
+        extension = document_path.suffix.lower()
+        content_type = ALLOWED_CONTENT_TYPES.get(extension, "application/octet-stream")
+
+        return StoredDocumentRef(
+            document_id=document_id,
+            storage_key=f"{document_id}/{document_path.name}",
+            path=document_path,
+            safe_filename=document_path.name,
+            content_type=content_type,
+        )
+
     def _validate_file_type(self, extension: str, content_type: str) -> None:
         expected_content_type = ALLOWED_CONTENT_TYPES.get(extension)
         if expected_content_type is None:
@@ -114,3 +172,10 @@ def sanitize_filename(filename: str) -> str:
             "Uploaded file must have a valid filename and extension.",
         )
     return safe_name
+
+
+def _is_valid_document_id(document_id: str) -> bool:
+    try:
+        return str(UUID(document_id)) == document_id
+    except ValueError:
+        return False

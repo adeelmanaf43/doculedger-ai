@@ -57,10 +57,20 @@ Invoke-RestMethod `
   -Form @{ file = Get-Item ".\sample-invoice.pdf" }
 ```
 
+## Extract Text From a PDF
+
+Text-based PDFs can be extracted after upload:
+
+```text
+POST http://localhost:8000/documents/{document_id}/extract-text
+```
+
+The response includes page count, combined text, per-page text, extraction method, and warnings. This step does not run OCR yet; scanned PDFs and images will need a later OCR service.
+
 ## Run Tests
 
 ```powershell
 pytest
 ```
 
-Current scope includes the app entrypoint, safe config defaults, health endpoint, and local document upload storage. OCR, extraction, database models, paid APIs, and frontend work are intentionally not implemented yet.
+Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, and text extraction for text-based PDFs. OCR, invoice field extraction, database models, paid APIs, and frontend work are intentionally not implemented yet.
