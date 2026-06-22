@@ -123,10 +123,80 @@ Limitations:
 - Human review is always required before export or bookkeeping use.
 - No paid APIs are required.
 
+## Review and Correct an Invoice
+
+After processing, a human reviewer can save corrected invoice fields and approve the invoice draft:
+
+```text
+POST http://localhost:8000/documents/{document_id}/review
+```
+
+Example request:
+
+```json
+{
+  "invoice": {
+    "vendor_name": "ABC Supplies Ltd",
+    "invoice_number": "INV-1001",
+    "invoice_date": "2026-06-20",
+    "due_date": "2026-07-20",
+    "subtotal": 100.0,
+    "tax": 10.0,
+    "total": 110.0,
+    "currency": "USD",
+    "email": "billing@example.com",
+    "phone": "+1 555 123 4567",
+    "line_items": []
+  },
+  "corrections": {
+    "vendor_name": {
+      "original": "ABC Supplles",
+      "corrected": "ABC Supplies Ltd"
+    },
+    "total": {
+      "original": 100.0,
+      "corrected": 110.0
+    }
+  },
+  "reviewer_notes": "Corrected vendor name and total.",
+  "approved": true,
+  "original_extraction_method": "rule_based"
+}
+```
+
+If `approved` is `true`, the saved status is `reviewed` and `requires_review` is `false`. If `approved` is `false`, the saved status is `review_required` and `requires_review` remains `true`.
+
+Retrieve the saved reviewed invoice:
+
+```text
+GET http://localhost:8000/documents/{document_id}/review
+```
+
+Check document review status:
+
+```text
+GET http://localhost:8000/documents/{document_id}/status
+```
+
+Status rules:
+
+- `uploaded`: document exists but no review has been saved yet.
+- `review_required`: review data is saved but not approved.
+- `reviewed`: human-reviewed invoice data has been approved.
+
+Reviewed invoice data is persisted in local SQLite using `DOCULEDGER_DATABASE_URL`, which defaults to `sqlite:///./doculedger.db`. The review workflow stores corrected invoice fields, correction metadata, reviewer notes, timestamps, and approval status. It does not store raw full OCR text.
+
+Limitations:
+
+- No frontend review UI is implemented yet.
+- No CSV export is implemented yet.
+- No accounting sync is implemented yet.
+- The next planned backend step is CSV export from reviewed invoices.
+
 ## Run Tests
 
 ```powershell
 pytest
 ```
 
-Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, local Tesseract OCR for images, rule-based invoice field extraction, and an end-to-end document processing endpoint. PDF page conversion, human review UI, CSV export, database models, paid APIs, and frontend work are intentionally not implemented yet.
+Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, local Tesseract OCR for images, rule-based invoice field extraction, an end-to-end document processing endpoint, and backend review/correction persistence. PDF page conversion, human review UI, CSV export, paid APIs, and frontend work are intentionally not implemented yet.

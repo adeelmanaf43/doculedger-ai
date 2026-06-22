@@ -7,9 +7,15 @@ from app.schemas.document import (
     UploadedDocumentMetadata,
 )
 from app.schemas.processing import ProcessingRequest, ProcessingResponse
+from app.schemas.review import (
+    DocumentReviewStatusResponse,
+    ReviewedInvoiceResponse,
+    ReviewRequest,
+)
 from app.services.extraction.pdf_text import PdfTextExtractor, TextExtractionError
 from app.services.ocr.tesseract_ocr import OcrError, TesseractOcrProvider
 from app.services.pipeline import DocumentProcessingPipeline, ProcessingError
+from app.services.review_service import ReviewError, ReviewService
 from app.services.storage.local_storage import (
     DocumentStorageError,
     DocumentUploadError,
@@ -83,4 +89,50 @@ def process_document(
     try:
         return pipeline.process(document_id, request or ProcessingRequest())
     except (DocumentStorageError, ProcessingError) as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+@router.post(
+    "/{document_id}/review",
+    response_model=ReviewedInvoiceResponse,
+)
+def save_document_review(
+    document_id: str,
+    request: ReviewRequest,
+    app_settings: Settings = Depends(get_settings),
+) -> ReviewedInvoiceResponse:
+    review_service = ReviewService(app_settings)
+    try:
+        return review_service.save_review(document_id, request)
+    except (DocumentStorageError, ReviewError) as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+@router.get(
+    "/{document_id}/review",
+    response_model=ReviewedInvoiceResponse,
+)
+def get_document_review(
+    document_id: str,
+    app_settings: Settings = Depends(get_settings),
+) -> ReviewedInvoiceResponse:
+    review_service = ReviewService(app_settings)
+    try:
+        return review_service.get_review(document_id)
+    except (DocumentStorageError, ReviewError) as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+@router.get(
+    "/{document_id}/status",
+    response_model=DocumentReviewStatusResponse,
+)
+def get_document_status(
+    document_id: str,
+    app_settings: Settings = Depends(get_settings),
+) -> DocumentReviewStatusResponse:
+    review_service = ReviewService(app_settings)
+    try:
+        return review_service.get_status(document_id)
+    except DocumentStorageError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
