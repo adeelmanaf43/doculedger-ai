@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.routes_documents import router as documents_router
+from app.api.routes_extractions import router as extractions_router
 from app.core.config import settings
 
 
@@ -11,6 +12,7 @@ app = FastAPI(
 )
 
 app.include_router(documents_router)
+app.include_router(extractions_router)
 
 
 @app.get("/health")

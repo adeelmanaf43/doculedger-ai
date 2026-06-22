@@ -87,10 +87,20 @@ POST http://localhost:8000/documents/{document_id}/ocr
 
 The response includes combined OCR text, per-page text, extraction method, optional confidence, and warnings. Scanned/image-based PDFs return a limitation warning for now because PDF-to-image page conversion has not been added yet.
 
+## Extract Invoice Fields
+
+Extracted PDF/OCR text can be converted into draft invoice fields with the local rule-based extractor:
+
+```text
+POST http://localhost:8000/extractions/invoice
+```
+
+The request body includes `text`, `source`, and optional `ocr_confidence`. The extractor uses deterministic regex and simple heuristics for invoice number, dates, money totals, currency, email, phone, vendor name, and basic line-item drafts. It always returns `requires_review: true` because DocuLedger is review-assisted. This extractor is intentionally limited and should be treated as a first-pass draft, not authoritative bookkeeping data.
+
 ## Run Tests
 
 ```powershell
 pytest
 ```
 
-Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, and local Tesseract OCR for images. PDF page conversion, invoice field extraction, database models, paid APIs, and frontend work are intentionally not implemented yet.
+Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, local Tesseract OCR for images, and rule-based invoice field extraction. PDF page conversion, human review UI, CSV export, database models, paid APIs, and frontend work are intentionally not implemented yet.
