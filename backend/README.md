@@ -97,10 +97,36 @@ POST http://localhost:8000/extractions/invoice
 
 The request body includes `text`, `source`, and optional `ocr_confidence`. The extractor uses deterministic regex and simple heuristics for invoice number, dates, money totals, currency, email, phone, vendor name, and basic line-item drafts. It always returns `requires_review: true` because DocuLedger is review-assisted. This extractor is intentionally limited and should be treated as a first-pass draft, not authoritative bookkeeping data.
 
+## Process an Uploaded Document
+
+After upload, a document can be processed end to end:
+
+```text
+POST http://localhost:8000/documents/{document_id}/process
+```
+
+Optional request body:
+
+```json
+{
+  "force_ocr": false,
+  "include_text_preview": true
+}
+```
+
+The processing endpoint resolves the stored document, extracts text with the existing PDF text extractor or local Tesseract image OCR, runs the rule-based invoice extractor, and returns a review-required structured invoice draft. It returns processing metadata, confidence scores, warnings, and only an optional short text preview instead of the full raw invoice text.
+
+Limitations:
+
+- Scanned PDF page conversion is not implemented yet.
+- Rule-based extraction is imperfect and should be treated as a draft.
+- Human review is always required before export or bookkeeping use.
+- No paid APIs are required.
+
 ## Run Tests
 
 ```powershell
 pytest
 ```
 
-Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, local Tesseract OCR for images, and rule-based invoice field extraction. PDF page conversion, human review UI, CSV export, database models, paid APIs, and frontend work are intentionally not implemented yet.
+Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, local Tesseract OCR for images, rule-based invoice field extraction, and an end-to-end document processing endpoint. PDF page conversion, human review UI, CSV export, database models, paid APIs, and frontend work are intentionally not implemented yet.
