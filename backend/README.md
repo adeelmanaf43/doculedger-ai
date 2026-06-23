@@ -189,9 +189,51 @@ Reviewed invoice data is persisted in local SQLite using `DOCULEDGER_DATABASE_UR
 Limitations:
 
 - No frontend review UI is implemented yet.
-- No CSV export is implemented yet.
 - No accounting sync is implemented yet.
-- The next planned backend step is CSV export from reviewed invoices.
+- CSV export is single-invoice only for now.
+
+## Export a Reviewed Invoice as CSV
+
+Approved reviewed invoices can be exported as bookkeeping-ready CSV:
+
+```text
+GET http://localhost:8000/documents/{document_id}/export?format=generic
+```
+
+Supported formats:
+
+- `generic`
+- `quickbooks`
+- `xero`
+
+PowerShell examples:
+
+```powershell
+curl.exe -L `
+  "http://localhost:8000/documents/{document_id}/export?format=generic" `
+  -o "doculedger-generic.csv"
+
+curl.exe -L `
+  "http://localhost:8000/documents/{document_id}/export?format=quickbooks" `
+  -o "doculedger-quickbooks.csv"
+
+curl.exe -L `
+  "http://localhost:8000/documents/{document_id}/export?format=xero" `
+  -o "doculedger-xero.csv"
+```
+
+CSV export uses the saved reviewed invoice as the source of truth. Invoices with `status: review_required` or `approved: false` cannot be exported.
+
+The generic export includes one row per invoice with document ID, invoice fields, review status, reviewed timestamp, and reviewer notes. The QuickBooks and Xero formats are MVP-style CSV templates for common accounting workflows; client-specific column mapping may be needed later.
+
+Limitations:
+
+- Only reviewed and approved invoices can be exported.
+- QuickBooks/Xero CSV files are templates, not direct QuickBooks/Xero API integrations.
+- Client-specific chart-of-accounts and tax mapping may need adjustment later.
+- Batch export is not implemented yet.
+- No frontend export UI is implemented yet.
+- No direct QuickBooks/Xero API sync is implemented yet.
 
 ## Run Tests
 
@@ -199,4 +241,4 @@ Limitations:
 pytest
 ```
 
-Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, local Tesseract OCR for images, rule-based invoice field extraction, an end-to-end document processing endpoint, and backend review/correction persistence. PDF page conversion, human review UI, CSV export, paid APIs, and frontend work are intentionally not implemented yet.
+Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, local Tesseract OCR for images, rule-based invoice field extraction, an end-to-end document processing endpoint, backend review/correction persistence, and single-invoice CSV export. PDF page conversion, human review UI, batch export, paid APIs, and frontend work are intentionally not implemented yet.

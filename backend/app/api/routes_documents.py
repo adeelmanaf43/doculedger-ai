@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 
 from app.core.config import Settings, get_settings
 from app.schemas.document import (
@@ -6,6 +6,7 @@ from app.schemas.document import (
     TextExtractionResult,
     UploadedDocumentMetadata,
 )
+from app.schemas.export import ExportFormat
 from app.schemas.processing import ProcessingRequest, ProcessingResponse
 from app.schemas.review import (
     DocumentReviewStatusResponse,
@@ -13,6 +14,7 @@ from app.schemas.review import (
     ReviewRequest,
 )
 from app.services.extraction.pdf_text import PdfTextExtractor, TextExtractionError
+from app.services.exporters.csv_exporter import CSVExporter
 from app.services.ocr.tesseract_ocr import OcrError, TesseractOcrProvider
 from app.services.pipeline import DocumentProcessingPipeline, ProcessingError
 from app.services.review_service import ReviewError, ReviewService
@@ -136,3 +138,40 @@ def get_document_status(
         return review_service.get_status(document_id)
     except DocumentStorageError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+@router.get("/{document_id}/export")
+def export_document_review(
+    document_id: str,
+    format: ExportFormat = ExportFormat.generic,
+    app_settings: Settings = Depends(get_settings),
+) -> Response:
+    review_service = ReviewService(app_settings)
+    exporter = CSVExporter()
+    try:
+        review = review_service.get_review(document_id)
+    except (DocumentStorageError, ReviewError) as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+    if review.status != "reviewed" or not review.approved:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Invoice must be reviewed and approved before export.",
+        )
+
+    export_result = exporter.export_reviewed_invoice(
+        document_id=review.document_id,
+        reviewed_invoice=review.reviewed_invoice.model_dump(),
+        status=review.status,
+        approved=review.approved,
+        reviewed_at=review.reviewed_at,
+        reviewer_notes=review.reviewer_notes,
+        export_format=format,
+    )
+    return Response(
+        content=export_result.csv_content,
+        media_type=export_result.content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{export_result.filename}"',
+        },
+    )
