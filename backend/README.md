@@ -15,6 +15,18 @@ pip install -r requirements.txt
 
 The backend reads configuration from environment variables and uses safe local defaults when variables are not set. The root `.env.example` is the source of truth for current placeholders. Do not commit a real `.env` file or secrets.
 
+For local frontend development, the backend allows CORS requests from:
+
+```text
+http://localhost:3000
+```
+
+Override this with a comma-separated list if needed:
+
+```powershell
+$env:DOCULEDGER_CORS_ALLOWED_ORIGINS="http://localhost:3000"
+```
+
 ## Tesseract OCR on Windows
 
 Image OCR uses local Tesseract through `pytesseract`. Install Tesseract separately before running OCR on real files. On Windows, install Tesseract and either add it to `PATH` or set:

@@ -27,6 +27,11 @@ def _get_optional_str(name: str) -> str | None:
     return cleaned or None
 
 
+def _get_csv_list(name: str, default: str) -> list[str]:
+    value = os.getenv(name, default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 @dataclass(frozen=True)
 class Settings:
     app_name: str = "DocuLedger"
@@ -73,6 +78,12 @@ class Settings:
     )
     stripe_enabled: bool = field(
         default_factory=lambda: _get_bool("DOCULEDGER_STRIPE_ENABLED", False)
+    )
+    cors_allowed_origins: list[str] = field(
+        default_factory=lambda: _get_csv_list(
+            "DOCULEDGER_CORS_ALLOWED_ORIGINS",
+            "http://localhost:3000",
+        )
     )
 
     @property
