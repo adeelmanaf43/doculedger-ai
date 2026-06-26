@@ -1,0 +1,2 @@
+document_id,vendor_name,invoice_number,invoice_date,due_date,subtotal,tax,total,currency,email,phone,status,approved,reviewed_at,reviewer_notes
+demo-document-abc-supplies,ABC Supplies Ltd,INV-1001,2026-06-20,2026-07-20,100.00,10.00,110.00,USD,billing@example.com,+1 555 123 4567,reviewed,true,2026-06-23T10:00:00,Demo invoice reviewed and approved.

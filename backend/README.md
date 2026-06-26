@@ -1,8 +1,16 @@
 # DocuLedger Backend
 
-FastAPI backend scaffold for the free-first DocuLedger MVP.
+FastAPI backend for the free-first DocuLedger MVP.
 
-## Local Setup on Windows
+Current workflow:
+
+```text
+upload document -> process text/OCR -> extract invoice draft -> review/correct -> export CSV
+```
+
+The backend owns validation, document storage, extraction, review persistence, and CSV export. The frontend is available under `frontend/`.
+
+## Local Setup On Windows
 
 From the repository root:
 
@@ -13,37 +21,48 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-The backend reads configuration from environment variables and uses safe local defaults when variables are not set. The root `.env.example` is the source of truth for current placeholders. Do not commit a real `.env` file or secrets.
+The backend uses safe local defaults from environment variables. The root `.env.example` is the placeholder reference. Do not commit real `.env` files or secrets.
 
-For local frontend development, the backend allows CORS requests from:
+## Environment Variables
+
+Common local settings:
 
 ```text
-http://localhost:3000
+APP_ENV=local
+APP_DEBUG=true
+DOCULEDGER_DATABASE_URL=sqlite:///./doculedger.db
+DOCULEDGER_LOCAL_STORAGE_DIR=./storage
+DOCULEDGER_MAX_UPLOAD_MB=10
+DOCULEDGER_OCR_PROVIDER=tesseract
+DOCULEDGER_TESSERACT_CMD=
+DOCULEDGER_EXTRACTOR_PROVIDER=rule_based
+DOCULEDGER_EXTERNAL_AI_ENABLED=false
+DOCULEDGER_GOOGLE_VISION_ENABLED=false
+DOCULEDGER_QUICKBOOKS_SYNC_ENABLED=false
+DOCULEDGER_XERO_SYNC_ENABLED=false
+DOCULEDGER_STRIPE_ENABLED=false
+DOCULEDGER_CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-Override this with a comma-separated list if needed:
+## Tesseract OCR On Windows
 
-```powershell
-$env:DOCULEDGER_CORS_ALLOWED_ORIGINS="http://localhost:3000"
-```
+Image OCR uses local Tesseract through `pytesseract`. Install Tesseract separately before OCR processing real image files.
 
-## Tesseract OCR on Windows
-
-Image OCR uses local Tesseract through `pytesseract`. Install Tesseract separately before running OCR on real files. On Windows, install Tesseract and either add it to `PATH` or set:
+Either add Tesseract to `PATH` or set:
 
 ```powershell
 $env:DOCULEDGER_TESSERACT_CMD="C:\Program Files\Tesseract-OCR\tesseract.exe"
 ```
 
-OCR remains local/free. No Google Vision, OpenAI, Claude, or paid OCR provider is used.
+OCR remains local/free. Google Vision, OpenAI, Claude, and paid OCR providers are not used in this MVP.
 
-## Run the API
+## Run The API
 
 ```powershell
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
 ```
 
-Then open:
+Open:
 
 ```text
 http://localhost:8000/health
@@ -60,64 +79,69 @@ Expected response:
 }
 ```
 
-## Upload a Document
-
-The local MVP accepts PDF, PNG, JPG, and JPEG uploads at:
-
-```text
-POST http://localhost:8000/documents/upload
-```
-
-The form field name is `file`. Uploaded source files are stored under `DOCULEDGER_LOCAL_STORAGE_DIR`, which defaults to `./storage`. The API response returns a relative `storage_key` instead of an absolute internal path.
-
-PowerShell example:
+If Windows blocks port `8000`, run on another port:
 
 ```powershell
-Invoke-RestMethod `
-  -Uri "http://localhost:8000/documents/upload" `
-  -Method Post `
-  -Form @{ file = Get-Item ".\sample-invoice.pdf" }
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
-## Extract Text From a PDF
+Then update the frontend `.env.local` value.
 
-Text-based PDFs can be extracted after upload:
+## Endpoints
+
+### Health
 
 ```text
-POST http://localhost:8000/documents/{document_id}/extract-text
+GET /health
 ```
 
-The response includes page count, combined text, per-page text, extraction method, and warnings.
-
-## OCR an Image
-
-PNG, JPG, and JPEG uploads can be OCR processed locally after upload:
+### Upload
 
 ```text
-POST http://localhost:8000/documents/{document_id}/ocr
+POST /documents/upload
 ```
 
-The response includes combined OCR text, per-page text, extraction method, optional confidence, and warnings. Scanned/image-based PDFs return a limitation warning for now because PDF-to-image page conversion has not been added yet.
+Form field: `file`
 
-## Extract Invoice Fields
+Accepted formats:
 
-Extracted PDF/OCR text can be converted into draft invoice fields with the local rule-based extractor:
+- PDF
+- PNG
+- JPG/JPEG
+
+The response includes a safe relative `storage_key`, not an absolute internal file path.
+
+### PDF Text Extraction
 
 ```text
-POST http://localhost:8000/extractions/invoice
+POST /documents/{document_id}/extract-text
 ```
 
-The request body includes `text`, `source`, and optional `ocr_confidence`. The extractor uses deterministic regex and simple heuristics for invoice number, dates, money totals, currency, email, phone, vendor name, and basic line-item drafts. It always returns `requires_review: true` because DocuLedger is review-assisted. This extractor is intentionally limited and should be treated as a first-pass draft, not authoritative bookkeeping data.
+Supports text-based PDFs. Scanned/image PDFs need a future page-conversion step.
 
-## Process an Uploaded Document
-
-After upload, a document can be processed end to end:
+### Image OCR
 
 ```text
-POST http://localhost:8000/documents/{document_id}/process
+POST /documents/{document_id}/ocr
 ```
 
-Optional request body:
+Supports PNG, JPG, and JPEG through local Tesseract. Scanned PDFs return a limitation warning for now.
+
+### Invoice Field Extraction
+
+```text
+POST /extractions/invoice
+```
+
+Runs the rule-based extractor on text and returns draft invoice fields, confidence scores, and warnings.
+
+### End-To-End Processing
+
+```text
+POST /documents/{document_id}/process
+```
+
+Optional body:
 
 ```json
 {
@@ -126,131 +150,77 @@ Optional request body:
 }
 ```
 
-The processing endpoint resolves the stored document, extracts text with the existing PDF text extractor or local Tesseract image OCR, runs the rule-based invoice extractor, and returns a review-required structured invoice draft. It returns processing metadata, confidence scores, warnings, and only an optional short text preview instead of the full raw invoice text.
+The endpoint resolves the stored document, extracts text/OCR where supported, runs rule-based invoice extraction, and returns a review-required draft.
 
-Limitations:
+### Human Review
 
-- Scanned PDF page conversion is not implemented yet.
-- Rule-based extraction is imperfect and should be treated as a draft.
-- Human review is always required before export or bookkeeping use.
-- No paid APIs are required.
-
-## Review and Correct an Invoice
-
-After processing, a human reviewer can save corrected invoice fields and approve the invoice draft:
+Save a reviewed invoice:
 
 ```text
-POST http://localhost:8000/documents/{document_id}/review
+POST /documents/{document_id}/review
 ```
 
-Example request:
-
-```json
-{
-  "invoice": {
-    "vendor_name": "ABC Supplies Ltd",
-    "invoice_number": "INV-1001",
-    "invoice_date": "2026-06-20",
-    "due_date": "2026-07-20",
-    "subtotal": 100.0,
-    "tax": 10.0,
-    "total": 110.0,
-    "currency": "USD",
-    "email": "billing@example.com",
-    "phone": "+1 555 123 4567",
-    "line_items": []
-  },
-  "corrections": {
-    "vendor_name": {
-      "original": "ABC Supplles",
-      "corrected": "ABC Supplies Ltd"
-    },
-    "total": {
-      "original": 100.0,
-      "corrected": 110.0
-    }
-  },
-  "reviewer_notes": "Corrected vendor name and total.",
-  "approved": true,
-  "original_extraction_method": "rule_based"
-}
-```
-
-If `approved` is `true`, the saved status is `reviewed` and `requires_review` is `false`. If `approved` is `false`, the saved status is `review_required` and `requires_review` remains `true`.
-
-Retrieve the saved reviewed invoice:
+Retrieve a reviewed invoice:
 
 ```text
-GET http://localhost:8000/documents/{document_id}/review
+GET /documents/{document_id}/review
 ```
 
-Check document review status:
+Check status:
 
 ```text
-GET http://localhost:8000/documents/{document_id}/status
+GET /documents/{document_id}/status
 ```
 
 Status rules:
 
-- `uploaded`: document exists but no review has been saved yet.
-- `review_required`: review data is saved but not approved.
+- `uploaded`: document exists but no review has been saved.
+- `review_required`: review data exists but has not been approved.
 - `reviewed`: human-reviewed invoice data has been approved.
 
-Reviewed invoice data is persisted in local SQLite using `DOCULEDGER_DATABASE_URL`, which defaults to `sqlite:///./doculedger.db`. The review workflow stores corrected invoice fields, correction metadata, reviewer notes, timestamps, and approval status. It does not store raw full OCR text.
+Reviewed invoice data is stored in SQLite through Python's built-in `sqlite3`.
 
-Limitations:
-
-- No frontend review UI is implemented yet.
-- No accounting sync is implemented yet.
-- CSV export is single-invoice only for now.
-
-## Export a Reviewed Invoice as CSV
-
-Approved reviewed invoices can be exported as bookkeeping-ready CSV:
+### CSV Export
 
 ```text
-GET http://localhost:8000/documents/{document_id}/export?format=generic
+GET /documents/{document_id}/export?format=generic
+GET /documents/{document_id}/export?format=quickbooks
+GET /documents/{document_id}/export?format=xero
 ```
 
-Supported formats:
+CSV export uses the saved reviewed invoice as the source of truth. Unreviewed or unapproved invoices cannot be exported.
 
-- `generic`
-- `quickbooks`
-- `xero`
+The QuickBooks and Xero outputs are MVP-style CSV templates. They are not direct QuickBooks/Xero API integrations and may need client-specific mapping later.
 
-PowerShell examples:
+## CORS For Local Frontend
+
+The backend allows local frontend requests from:
+
+```text
+http://localhost:3000
+```
+
+Override with:
 
 ```powershell
-curl.exe -L `
-  "http://localhost:8000/documents/{document_id}/export?format=generic" `
-  -o "doculedger-generic.csv"
-
-curl.exe -L `
-  "http://localhost:8000/documents/{document_id}/export?format=quickbooks" `
-  -o "doculedger-quickbooks.csv"
-
-curl.exe -L `
-  "http://localhost:8000/documents/{document_id}/export?format=xero" `
-  -o "doculedger-xero.csv"
+$env:DOCULEDGER_CORS_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
 ```
-
-CSV export uses the saved reviewed invoice as the source of truth. Invoices with `status: review_required` or `approved: false` cannot be exported.
-
-The generic export includes one row per invoice with document ID, invoice fields, review status, reviewed timestamp, and reviewer notes. The QuickBooks and Xero formats are MVP-style CSV templates for common accounting workflows; client-specific column mapping may be needed later.
-
-Limitations:
-
-- Only reviewed and approved invoices can be exported.
-- QuickBooks/Xero CSV files are templates, not direct QuickBooks/Xero API integrations.
-- Client-specific chart-of-accounts and tax mapping may need adjustment later.
-- Batch export is not implemented yet.
-- No frontend export UI is implemented yet.
-- No direct QuickBooks/Xero API sync is implemented yet.
 
 ## Run Tests
 
 ```powershell
-pytest
+python -m pytest
 ```
 
-Current scope includes the app entrypoint, safe config defaults, health endpoint, local document upload storage, text extraction for text-based PDFs, local Tesseract OCR for images, rule-based invoice field extraction, an end-to-end document processing endpoint, backend review/correction persistence, and single-invoice CSV export. PDF page conversion, human review UI, batch export, paid APIs, and frontend work are intentionally not implemented yet.
+The pytest configuration focuses collection on `backend/tests` and uses a local `.pytest-tmp` base directory to avoid Windows permission issues with stray pytest temp folders.
+
+## Limitations
+
+- Not production-ready.
+- No authentication or workspace isolation yet.
+- No dashboard/history yet.
+- No batch upload or batch export yet.
+- No direct QuickBooks/Xero API sync.
+- Scanned PDF page conversion is not implemented yet.
+- OCR depends on local Tesseract installation and image quality.
+- Rule-based extraction is imperfect and always requires review before export.
