@@ -1,54 +1,123 @@
 # DocuLedger
 
-DocuLedger is a free-first, review-assisted invoice and receipt processing MVP for small bookkeeping workflows.
+DocuLedger is a free-first, review-assisted invoice and receipt processing MVP that turns uploaded documents into human-reviewed bookkeeping-ready CSV exports.
 
-It helps users upload invoice or receipt PDFs/images, create a local extraction draft, review and correct the extracted fields, and export approved CSV files for generic Excel, QuickBooks-style, and Xero-style workflows.
+## Problem
 
-DocuLedger is not autonomous bookkeeping. Extracted data is treated as a draft until a human reviewer approves it.
+Bookkeepers and small operators often spend hours reading invoice PDFs or receipt images, typing vendor/date/tax/total fields, correcting OCR mistakes, and preparing data for accounting tools. DocuLedger speeds up that workflow while keeping a human reviewer in control before anything is exported.
 
 ## Target Users
 
-- Small bookkeepers and CPA firms
+- Small bookkeeping firms
+- Independent bookkeepers
+- Small CPA and accounting practices
 - Ecommerce operators processing receipts
-- Property managers handling vendor invoices
-- Small businesses entering invoice data manually
+- Property and construction businesses handling supplier invoices
 
-## Problem Solved
+## What The MVP Does
 
-Many small teams still read invoice PDFs/images by hand and manually enter vendor names, invoice numbers, dates, totals, tax, and currency into spreadsheets or accounting tools. DocuLedger reduces that manual effort while keeping human review in the loop.
+- Accepts PDF, PNG, JPG, and JPEG invoices or receipts.
+- Validates uploads and stores them locally.
+- Extracts text from text-based PDFs.
+- Runs local Tesseract OCR for image uploads.
+- Extracts draft invoice fields with rule-based logic.
+- Shows confidence scores and warnings.
+- Lets a human reviewer correct and approve fields.
+- Exports reviewed invoices as Generic, QuickBooks-style, or Xero-style CSV.
 
-## Current MVP Workflow
+DocuLedger is not autonomous bookkeeping. Extracted values are treated as drafts until reviewed and approved.
+
+## End-To-End Workflow
 
 ```text
-upload document -> process text/OCR -> review extracted fields -> approve invoice -> export CSV
+Upload invoice/receipt -> process with PDF text extraction or OCR -> extract invoice fields -> review/correct fields -> approve invoice -> export Generic/QuickBooks/Xero-style CSV
 ```
+
+## Demo Status
+
+The local MVP is demo-ready for a single-document workflow:
+
+- Backend API workflow is implemented and tested.
+- Frontend upload/review/export workflow is implemented.
+- Fake demo invoices and expected CSV examples are included under `demo/`.
+- Demo instructions are available in `docs/DEMO_WORKFLOW.md`.
+
+## Screenshots
+
+Screenshots have not been captured yet. The planned README screenshots are:
+
+- Upload screen
+- Uploaded document success state
+- Processing result with confidence/warnings
+- Review form with editable fields
+- Export CSV buttons
+- CSV output example
+
+Manual capture instructions are in `docs/SCREENSHOT_GUIDE.md`.
 
 ## Tech Stack
 
-- Backend: FastAPI, Python, Pydantic, pytest
-- Frontend: Next.js, TypeScript, Tailwind CSS
-- OCR: local Tesseract through `pytesseract` and Pillow
-- PDF text extraction: local/free Python PDF tooling
-- Extraction: rule-based invoice parser
-- Persistence: SQLite for reviewed invoices
-- Export: Python standard-library CSV generation
+### Backend
+
+- FastAPI
+- Python
+- Pydantic
+- Local PDF text extraction
+- Tesseract OCR through `pytesseract` and Pillow
+- SQLite
+- pytest
+
+### Frontend
+
+- Next.js
+- TypeScript
+- TailwindCSS
+- Native `fetch` API
+
+### Exports
+
+- Python `csv` module
+- Generic CSV
+- QuickBooks-style CSV template
+- Xero-style CSV template
+
+## Architecture Overview
+
+```text
+Next.js frontend
+  -> FastAPI backend
+    -> secure upload validation
+    -> local document storage
+    -> PDF text extraction or Tesseract OCR
+    -> rule-based invoice extraction
+    -> SQLite reviewed invoice persistence
+    -> CSV export
+```
+
+The frontend communicates with the FastAPI backend. The backend owns upload validation, processing, extraction, human review persistence, and CSV export. SQLite stores reviewed invoice data. Paid providers are intentionally not required in the MVP.
 
 ## Features Completed
 
-- Secure PDF/PNG/JPG/JPEG upload validation
-- Local temporary document storage
-- Text extraction for text-based PDFs
-- Local image OCR for PNG/JPG/JPEG
+- FastAPI backend scaffold
+- Config and environment defaults
+- Health endpoint
+- Secure upload endpoint
+- Local temporary storage
+- PDF text extraction for text-based PDFs
+- Tesseract OCR for PNG/JPG/JPEG images
 - Rule-based invoice field extraction
-- Confidence scores and warnings
+- Processing pipeline
 - Human review and correction workflow
+- SQLite persistence for reviewed invoices
 - Reviewed-only CSV export
-- Generic, QuickBooks-style, and Xero-style CSV templates
-- Next.js frontend for upload, process, review, and export
-- Backend tests for the core workflow
-- Demo data and demo workflow documentation
+- Next.js frontend MVP
+- Demo files and expected CSV outputs
+- Backend pytest coverage
+- Portfolio/demo documentation
 
-## Run The Backend
+## Run Locally
+
+### Backend
 
 ```powershell
 cd backend
@@ -64,13 +133,7 @@ Health check:
 http://localhost:8000/health
 ```
 
-Run tests:
-
-```powershell
-python -m pytest
-```
-
-## Run The Frontend
+### Frontend
 
 ```powershell
 cd frontend
@@ -85,16 +148,15 @@ Open:
 http://localhost:3000
 ```
 
-If your backend uses a different port, update:
+If the backend runs on another port, update `frontend/.env.local`:
 
 ```text
-frontend/.env.local
 NEXT_PUBLIC_DOCULEDGER_API_BASE_URL=http://127.0.0.1:8001
 ```
 
 ## Demo Workflow
 
-Start with:
+Use the safe sample invoice:
 
 ```text
 demo/sample_invoices/abc_supplies_invoice.pdf
@@ -106,65 +168,100 @@ Then follow:
 docs/DEMO_WORKFLOW.md
 ```
 
-Expected CSV examples are available under:
+Expected CSV examples are in:
 
 ```text
 demo/expected_outputs/
 ```
 
-## Screenshots
+## API Overview
 
-Screenshots are not included yet. Recommended screenshots for a portfolio README:
+- `GET /health`
+- `POST /documents/upload`
+- `POST /documents/{document_id}/extract-text`
+- `POST /documents/{document_id}/ocr`
+- `POST /documents/{document_id}/process`
+- `POST /documents/{document_id}/review`
+- `GET /documents/{document_id}/review`
+- `GET /documents/{document_id}/status`
+- `GET /documents/{document_id}/export?format=generic`
+- `GET /documents/{document_id}/export?format=quickbooks`
+- `GET /documents/{document_id}/export?format=xero`
 
-- Upload screen with backend connected
-- Processed invoice draft with warnings/confidence
-- Review form after correction
-- CSV export buttons after approval
+## Testing And Validation
 
-## Architecture Summary
+Backend:
 
-```text
-Next.js frontend
-  -> FastAPI backend
-    -> local storage
-    -> PDF text extraction or local OCR
-    -> rule-based invoice extraction
-    -> SQLite reviewed invoice persistence
-    -> CSV exporter
+```powershell
+cd backend
+python -m pytest
 ```
 
-## Free-First Approach
+Frontend:
 
-The MVP does not require OpenAI, Claude, Google Vision, Stripe, QuickBooks APIs, Xero APIs, paid hosting, or paid storage. Local/free tools are used first so the workflow can be tested privately and cheaply.
+```powershell
+cd frontend
+npm run build
+npm run lint
+```
 
-Paid providers may be added later behind adapter interfaces and disabled-by-default feature flags.
+Manual QA checklist:
+
+```text
+docs/MVP_QA_CHECKLIST.md
+```
 
 ## Security And Privacy Notes
 
-- Do not commit real invoices, receipts, `.env` files, API keys, or client financial data.
-- Demo files contain fake data only.
-- Uploaded source files are sensitive and stored locally in MVP mode.
-- API responses avoid exposing absolute internal storage paths.
-- CSV export is allowed only after human review approval.
+- Demo files use fake data only.
+- Do not commit real invoices, `.env` files, API keys, credentials, or client financial data.
+- Uploaded source files are sensitive financial documents.
+- API responses avoid exposing absolute internal file paths.
+- CSV export is blocked until human review approval.
 - Full OCR/invoice text should not be logged in production.
+- Paid OCR/LLM providers are not enabled in the MVP.
 
-## Current Limitations
+## Limitations
 
 - Not production-ready.
-- No authentication, user accounts, or workspace isolation.
+- No authentication.
+- No multi-tenant workspaces.
 - No dashboard/history view.
 - No batch upload or batch export.
-- No direct QuickBooks or Xero API integration.
-- CSV formats are MVP templates and may need client-specific mapping.
-- Scanned PDF page conversion is not implemented yet.
-- OCR and rule-based extraction are imperfect and require human review.
+- No direct QuickBooks/Xero API sync.
+- QuickBooks/Xero CSV templates may need client-specific mapping.
+- Scanned PDF support is limited because PDF page-to-image conversion is not implemented yet.
+- OCR accuracy depends on document quality and local Tesseract setup.
+- Rule-based extraction is imperfect.
+- Human review is required.
+- No paid LLM/OCR integrations are included in the MVP.
 
-## Future Roadmap
+## Roadmap
 
-- Add authentication and workspace isolation.
-- Add audit logs for upload, process, review, export, and delete.
-- Add configurable retention cleanup for source files.
-- Add scanned PDF page conversion.
-- Add batch processing and batch CSV export.
-- Add client-specific CSV mapping.
-- Add optional paid OCR/LLM adapters behind feature flags.
+- Dashboard and document history
+- Batch upload/export
+- Better scanned PDF handling
+- Client-specific export mappings
+- Authentication and workspaces
+- Cloud storage
+- Optional paid OCR/LLM adapters behind feature flags
+- Direct QuickBooks/Xero APIs
+- Deployment hardening
+
+## Portfolio And Interview Highlights
+
+This project demonstrates:
+
+- AI product thinking for a real document workflow
+- Human-in-the-loop design for financial accuracy
+- Document processing and OCR integration
+- Backend API design with FastAPI
+- Frontend integration with Next.js and TypeScript
+- Secure file upload basics
+- CSV export safety and reviewed-only export rules
+- Testable free-first architecture
+- Clear limitations and practical roadmap planning
+
+## Disclaimer
+
+DocuLedger is a portfolio MVP, not production accounting software. It does not guarantee extraction accuracy, does not provide financial advice, and does not include official QuickBooks or Xero API integrations. Human review is required before using exported data in bookkeeping workflows.
